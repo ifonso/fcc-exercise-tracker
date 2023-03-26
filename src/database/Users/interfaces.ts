@@ -17,8 +17,6 @@ export interface IUserMethods {
 
 export interface UserModel extends Model<IUser, {}, IUserMethods> {
   createUser(username: string): Promise<HydratedDocument<IUser, IUserMethods>>;
-  // findUserById(id: string): Promise<HydratedDocument<IUser, IUserMethods> | null>;
-  // getAllUsers(): Promise<HydratedDocument<IUser, IUserMethods>[]>;
 };
 
 // Mongoose document baseado em IUser

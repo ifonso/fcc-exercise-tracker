@@ -3,15 +3,6 @@ import controller from "./controller";
 
 const routes = Router();
 
-// Request logger middleware
-routes.use(function(request, _, next) {
-  console.log("\nBODY:")
-  for (const key in request.body) { 
-    console.log(`${key}: ${request.body[key]}`);
-  }
-  next()
-})
-
 // POST request create a new user and return it.
 routes.post("/users", controller.createUser);
 
