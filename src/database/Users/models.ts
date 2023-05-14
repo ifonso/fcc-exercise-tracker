@@ -1,6 +1,7 @@
 import { model } from "mongoose";
-import { IUser, UserModel } from "./interfaces";
+import { UserModel } from "./interfaces";
 
 import UserSchema from "./schema";
+import User from "./Types/User";
 
-export const User = model<IUser, UserModel>('Users', UserSchema);
+export const MongooseUserModel = model<User, UserModel>('Users', UserSchema);

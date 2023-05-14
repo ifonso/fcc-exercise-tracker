@@ -1,101 +1,97 @@
 import { Request, Response } from "express";
+import { ExerciseData } from "./interfaces/Models/User";
 
-import databaseManager from "./services/DatabaseManager";
-import Utils from "./utils";
+import DatabaseManager from "./interfaces/Managers/DataManager";
+
+import Database from "./services/Database";
+import Utils from "./utils/Utils";
 
 class Controller {
-  databaseManager;
 
-  constructor(dataManager: typeof databaseManager) {
-    this.databaseManager = dataManager;
+  private database: DatabaseManager;
+
+  constructor(database: DatabaseManager) {
+    this.database = database;
   }
 
   async createUser(request: Request, response: Response) {
     const { username } = request.body;
     
-    if (!username) 
-    return response.status(400).send("No data provided.");
+    if (typeof username === "undefined") 
+    return response.status(400).send("No username.");
 
-    try {
-      const data = await databaseManager.createUser(username);
-      return response.json(data);
-    } catch (error) {
-      console.log(error);
-      return response.status(500).send("Could not create the user."); 
-    }
+    const data = await this.database.createUser.apply(this.database, [username]);
+    
+    return response.json({
+      username: data.username,
+      _id: data._id
+    })
   }
 
   async getAllUsers(_: Request, response: Response) {
-    try {
-      const data = await databaseManager.getAllUsers();
-      return response.json(data);
-    } catch (error) {
-      console.log(error);
-      return response.status(500).send("Could not retrieve users."); 
-    }
+    const data = await this.database.getUsers.apply(this.database, []);    
+
+    return response.json(data.map( user => {
+      return {
+        username: user.username,
+        _id: user._id
+      }
+    }));
   }
 
   async saveExercise(request: Request, response: Response) {
     const { description, duration, date } = request.body;
     const { _id } = request.params;
 
-    let formatedDate: string | undefined;
-
-    if (!description || !duration || !_id)
+    if (typeof description === "undefined" || typeof duration === "undefined" || typeof _id === "undefined")
     return response.status(400).send("Data missing.");
 
-    // TODO: Validate date and return formated in Utils
-    if (date) {
-      if (!Utils.isCorrectDate(new Date(date)))
-      return response.status(400).send("Invalid date passed.");
-      formatedDate = Utils.formatDateToString(new Date(date));
-    }
+    if (typeof date !== "undefined" && !Utils.isValidDate(date))
+    return response.status(400).send("Invalid date passed.");
     
-    try {
-      const data = await databaseManager.saveUserExercise(_id, description, duration, date);
-      return response.json(data);
-    } catch (error) {
-      console.log(error);
-      return response.status(500).send("Could not save user exercise."); 
-    }
+    const exercise: ExerciseData = {
+      description: description,
+      duration: duration,
+      date: typeof date === "undefined"
+      ? Utils.getCurrentDateString()
+      : Utils.formatDateToString(date)
+    };
+
+    const data = await this.database.saveExerciseInUser.apply(this.database, [_id, exercise]);
+
+    return response.json({
+      username: data.username,
+      description: data.exercises.at(-1)?.description,
+      duration: data.exercises.at(-1)?.duration,
+      date: data.exercises.at(-1)?.date,
+      _id: data._id
+    });
   }
 
   async getUserLogs(request: Request, response: Response) {
     const { _id } = request.params;
     const { from, to, limit } = request.query;
+
+    if (typeof _id === "undefined")
+    return response.status(400).send("Data missing.");
     
-    let initial: Date | undefined = undefined;
-    let final: Date | undefined = undefined;
-    let count: number | undefined = undefined;
+    if (typeof from !== "undefined" && typeof to !== "undefined" && !Utils.isValidInterval(from, to))
+    return response.status(400).send("Invalid data range.");
 
-    if (!_id) return response.status(400).send("Data missing.");
-
-    // Check if entries are valid
-    if (from && to && limit) {
-      initial = new Date(from as string);
-
-      if (!Utils.isCorrectDate(initial))
-      return response.status(400).send("Invalid date 'from' passed.");
-
-      final = new Date(to as string);
-
-      if (!Utils.isCorrectDate(final))
-      return response.status(400).send("Invalid date 'to' passed.");
-
-      count = Number(limit);
-
-      if (!count)
-      return response.status(400).send("Invalid limit passed.");
-    }
+    if (typeof limit !== "undefined" && isNaN(Number(limit)))
+    return response.status(400).send("Invalid limit.");
     
-    try {
-      const data = await databaseManager.getUserLogs(_id, initial, final, count);
-      return response.json(data);
-    } catch (error) {
-      console.log(error);
-      return response.status(400).send("Could not get user logs."); 
-    }
+    const data = await this.database.getUserLog.apply(
+      this.database,
+      [
+        _id, 
+        Utils.getIntervalParams(from, to), 
+        isNaN(Number(limit)) ? undefined : Number(limit)
+      ]
+    );
+
+    return response.json(data);
   }
 }
 
-export default new Controller(databaseManager);
+export default new Controller(Database);

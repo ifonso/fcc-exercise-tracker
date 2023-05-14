@@ -1,11 +1,11 @@
-import { IExercise } from "../database/Users/interfaces";
+import { ExerciseData } from "./User";
 
-export interface IUserResponse {
+export interface HTTPUserResponse {
   username: string;
   _id: string;
 }
 
-export interface IExerciseResponse {
+export interface HTTPExerciseResponse {
   username: string;
   description: string;
   duration: number;
@@ -13,9 +13,9 @@ export interface IExerciseResponse {
   _id: string;
 }
 
-export interface ILogResponse {
+export interface HTTPLogResponse {
   username: string;
   count: number;
   _id: string;
-  log: IExercise[]
+  log: ExerciseData[]
 }

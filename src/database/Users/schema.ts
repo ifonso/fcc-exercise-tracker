@@ -1,9 +1,12 @@
 import { Schema } from "mongoose";
-import { IExercise, IUser, IUserMethods, UserModel } from "./interfaces";
+import { UserMethods, UserModel } from "./interfaces";
 
-import Utils from "../../utils";
+import Exercise from "./Types/Exercise";
+import User from "./Types/User";
 
-const ExerciseSchema = new Schema<IExercise>(
+import Utils from "../../utils/Utils";
+
+const ExerciseSchema = new Schema<Exercise>(
   {
     description: {
       type: String,
@@ -25,7 +28,7 @@ const ExerciseSchema = new Schema<IExercise>(
   }
 );
 
-const UserSchema = new Schema<IUser, UserModel, IUserMethods>(
+const UserSchema = new Schema<User, UserModel, UserMethods>(
   {
     username: {
       type: String,
@@ -50,7 +53,7 @@ UserSchema.static("createUser", function createUser(username: string) {
   return this.create({ username });
 })
 
-UserSchema.method("addExercise", function addExercise(exercise: IExercise) {
+UserSchema.method("addExercise", function addExercise(exercise: Exercise) {
   this.exercises.push(exercise);
   return this.save();
 });
