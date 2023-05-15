@@ -4,7 +4,7 @@ import { UserMethods, UserModel } from "./interfaces";
 import Exercise from "./Types/Exercise";
 import User from "./Types/User";
 
-import Utils from "../../utils/Utils";
+import Utils from "../../utils/DateValidator";
 
 const ExerciseSchema = new Schema<Exercise>(
   {

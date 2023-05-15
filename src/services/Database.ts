@@ -4,7 +4,7 @@ import DatabaseManager from "../interfaces/Managers/DataManager";
 import RangeTime from "../interfaces/Models/RangeTime";
 import { UserData, UserLog, ExerciseData } from "../interfaces/Models/User";
 
-import Utils from "../utils/Utils";
+import DateValidator from "../utils/DateValidator";
 import { MongooseUserModel } from "../database/Users/models";
 
 class Database implements DatabaseManager {
@@ -80,7 +80,7 @@ class Database implements DatabaseManager {
       if (typeof limit !== "undefined" && counter >= limit)
       return false;
 
-      if (typeof params !== "undefined" && !Utils.dateIsBetween(new Date(exercise.date), params.from, params.to))
+      if (typeof params !== "undefined" && !DateValidator.dateIsBetween(new Date(exercise.date), params.from, params.to))
       return false;
 
       counter++;

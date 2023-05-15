@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import routes from "./routes";
 import connection from "./database/connection";
-import errorHandler from "./error";
 
 const _ = connection;
 const PORT = process.env.PORT || 443;
@@ -17,7 +16,6 @@ app.use(cors(optioins));
 app.use(express.static("public"));
 app.use(express.urlencoded({ extended: true }));
 app.use("/api", routes);
-app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Server listen at: [${PORT}]`);
