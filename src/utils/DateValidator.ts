@@ -1,5 +1,3 @@
-import RangeTime from "../interfaces/Models/RangeTime";
-
 export default class DateValidator {
   
   static isValidDate(date: any): boolean {
@@ -23,14 +21,5 @@ export default class DateValidator {
 
   static dateIsBetween(date: Date, minDate: Date, maxDate: Date): boolean {
     return date.getTime() >= minDate.getTime() && date.getTime() <= maxDate.getTime();
-  }
-
-  static getIntervalParams(from: any, to: any): RangeTime | undefined {
-    if (!DateValidator.isValidDate(from) || !DateValidator.isValidDate(to)) return;
-
-    return {
-      from: new Date(from),
-      to: new Date(to),
-    }
   }
 }
