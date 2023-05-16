@@ -1,10 +1,8 @@
 import mongoose from "mongoose";
 
 import DatabaseManager from "../interfaces/Managers/DataManager";
-import RangeTime from "../interfaces/Models/RangeTime";
 import { UserData, UserLog, ExerciseData } from "../interfaces/Models/User";
 
-import DateValidator from "../utils/DateValidator";
 import { MongooseUserModel } from "../database/Users/models";
 
 class Database implements DatabaseManager {
@@ -53,7 +51,7 @@ class Database implements DatabaseManager {
     };
   }
 
-  async getUserLog(id: string, params?: RangeTime, limit?: number): Promise<UserLog> {
+  async getUserLog(id: string, from?: Date, to?: Date, limit?: number): Promise<UserLog> {
     if (!mongoose.isValidObjectId(id))
     throw new Error("Invalid user ID.");
 
@@ -66,21 +64,22 @@ class Database implements DatabaseManager {
       _id: user._id,
       username: user.username,
       count: user.exercises.length,
-      log: typeof params === "undefined" && typeof limit === "undefined"
-      ? user.exercises
-      : this.filterExercises(user.exercises as ExerciseData[], params, limit)
+      log: this.filterExercises(user.exercises as ExerciseData[], from, to, limit)
     }
   }
 
   // Utility functions
-  private filterExercises(data: ExerciseData[], params?: RangeTime, limit?: number): ExerciseData[] {
+  private filterExercises(data: ExerciseData[], from?: Date, to?: Date, limit?: number): ExerciseData[] {
     let counter = 0;
 
     return data.filter( exercise => {
       if (typeof limit !== "undefined" && counter >= limit)
       return false;
 
-      if (typeof params !== "undefined" && !DateValidator.dateIsBetween(new Date(exercise.date), params.from, params.to))
+      if (typeof from !== "undefined" && new Date(exercise.date) < from)
+      return false;
+
+      if (typeof to !== "undefined" && new Date(exercise.date) > to)
       return false;
 
       counter++;

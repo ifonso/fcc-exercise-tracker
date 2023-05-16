@@ -86,8 +86,11 @@ class Controller {
     if (typeof _id === "undefined")
     return response.status(400).send("Data missing.");
     
-    if (typeof from !== "undefined" && typeof to !== "undefined" && !DateValidator.isValidInterval(from, to))
-    return response.status(400).send("Invalid data range.");
+    if (typeof from !== "undefined" && !DateValidator.isValidDate(from))
+    return response.status(400).send("Invalid data from.");
+
+    if (typeof to !== "undefined" && !DateValidator.isValidDate(to))
+    return response.status(400).send("Invalid data to.");
 
     if (typeof limit !== "undefined" && isNaN(Number(limit)))
     return response.status(400).send("Invalid limit.");
@@ -97,8 +100,9 @@ class Controller {
         this.database,
         [
           _id, 
-          DateValidator.getIntervalParams(from, to), 
-          isNaN(Number(limit)) ? undefined : Number(limit)
+          DateValidator.isValidDate(from) ? new Date(from as string) : undefined,
+          DateValidator.isValidDate(from) ? new Date(to as string) : undefined, 
+          !isNaN(Number(limit)) ? Number(limit) : undefined
         ]
       );
 
