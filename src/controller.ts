@@ -2,24 +2,42 @@ import { Request, Response } from "express";
 import { ExerciseData } from "./interfaces/Models/User";
 
 import DatabaseManager from "./interfaces/Managers/DataManager";
+import ValidationManager from "./interfaces/Managers/ValidationManager";
 
-import Database from "./services/Database";
+// Services
 import DateValidator from "./utils/DateValidator";
+import Database from "./services/Database";
+import Validator from "./services/Validator";
 
-// @TODO: Erros are not been passed
+// Validation Schemas
+import {
+  createUserValidationSchema,
+  getUsersLogValidationSchema,
+  saveExerciseValidationSchema
+} from "./utils/RequestValidationSchemas";
+
+// @TODO: 
+// -> No duration provided always trigger.
+// -> from, to & limit throw erros.
+
 class Controller {
 
   private database: DatabaseManager;
+  private validator: ValidationManager;
 
-  constructor(database: DatabaseManager) {
+  constructor(database: DatabaseManager, validator: ValidationManager) {
     this.database = database;
+    this.validator = validator;
   }
 
   async createUser(request: Request, response: Response) {
     const { username } = request.body;
-    
-    if (typeof username === "undefined") 
-    return response.status(400).send("No username.");
+
+    try {
+      this.validator.validateRequest(createUserValidationSchema, request.body);
+    } catch (error) {
+      return this.handleRequestError(error as Error, response);
+    }
 
     try {
       const data = await this.database.createUser.apply(this.database, [username]);
@@ -29,12 +47,12 @@ class Controller {
         _id: data._id
       })
     } catch (error) {
-      console.error(error);
-      return response.status(500).send("An error has occurred.");
+      return this.handleServerError(error as Error, response);
     }
   }
 
   async getAllUsers(_: Request, response: Response) {
+    try {
     const data = await this.database.getUsers.apply(this.database, []);    
 
     return response.json(data.map( user => {
@@ -43,17 +61,20 @@ class Controller {
         _id: user._id
       }
     }));
+    } catch (error) {
+      return this.handleServerError(error as Error, response);
+    }
   }
 
   async saveExercise(request: Request, response: Response) {
     const { description, duration, date } = request.body;
     const { _id } = request.params;
 
-    if (typeof description === "undefined" || typeof duration === "undefined" || typeof _id === "undefined")
-    return response.status(400).send("Data missing.");
-
-    if (typeof date !== "undefined" && !DateValidator.isValidDate(date))
-    return response.status(400).send("Invalid date passed.");
+    try {
+      this.validator.validateRequest(saveExerciseValidationSchema, request.body);
+    } catch (error) {
+      return this.handleRequestError(error as Error, response);
+    }
     
     const exercise: ExerciseData = {
       description: description,
@@ -74,8 +95,7 @@ class Controller {
         _id: data._id
       });
     } catch (error) {
-      console.error(error);
-      return response.status(500).send("An error has occurred.");
+      return this.handleServerError(error as Error, response);
     }
   }
 
@@ -83,18 +103,12 @@ class Controller {
     const { _id } = request.params;
     const { from, to, limit } = request.query;
 
-    if (typeof _id === "undefined")
-    return response.status(400).send("Data missing.");
-    
-    if (typeof from !== "undefined" && !DateValidator.isValidDate(from))
-    return response.status(400).send("Invalid data from.");
+    try {
+      this.validator.validateRequest(getUsersLogValidationSchema, { ...request.params, ...request.query });
+    } catch (error) {
+      return this.handleRequestError(error as Error, response);
+    }
 
-    if (typeof to !== "undefined" && !DateValidator.isValidDate(to))
-    return response.status(400).send("Invalid data to.");
-
-    if (typeof limit !== "undefined" && isNaN(Number(limit)))
-    return response.status(400).send("Invalid limit.");
-    
     try {
       const data = await this.database.getUserLog.apply(
         this.database,
@@ -108,10 +122,19 @@ class Controller {
 
       return response.json(data);
     } catch (error) {
-      console.error(error);
-      return response.status(400).send("An error has occurred.");
+      return this.handleServerError(error as Error, response);
     }
+  }
+
+  handleRequestError(error: Error, response: Response) {
+    console.log(error.message);
+    return response.status(400).send(error.message);
+  }
+
+  handleServerError(error: Error, response: Response) {
+    console.log(error.message);
+    return response.status(500).send(error.message);
   }
 }
 
-export default new Controller(Database);
+export default new Controller(Database, new Validator);
