@@ -1,140 +1,148 @@
 import { Request, Response } from "express";
-import { ExerciseData } from "./interfaces/Models/User";
+import { UserRepository } from "./database/repository/userRepository";
 
-import DatabaseManager from "./interfaces/Managers/DataManager";
-import ValidationManager from "./interfaces/Managers/ValidationManager";
+import { createUserSchema } from "./schemas/createUserSchema";
+import { createExerciseSchema } from "./schemas/createExerciseSchema";
+import { getUserLogsSchema } from "./schemas/getUserLogsSchema";
 
-// Services
-import DateValidator from "./utils/DateValidator";
-import Database from "./services/Database";
-import Validator from "./services/Validator";
-
-// Validation Schemas
-import {
-  createUserValidationSchema,
-  getUsersLogValidationSchema,
-  saveExerciseValidationSchema
-} from "./utils/RequestValidationSchemas";
-
-// @TODO: 
-// -> No duration provided always trigger.
-// -> from, to & limit throw erros.
+import { zParse } from "./utils/schemaValidator";
+import { ZodError } from "zod";
 
 class Controller {
+    constructor(private database: UserRepository) {}
 
-  private database: DatabaseManager;
-  private validator: ValidationManager;
-
-  constructor(database: DatabaseManager, validator: ValidationManager) {
-    this.database = database;
-    this.validator = validator;
-  }
-
-  async createUser(request: Request, response: Response) {
-    const { username } = request.body;
-
-    try {
-      this.validator.validateRequest(createUserValidationSchema, request.body);
-    } catch (error) {
-      return this.handleRequestError(error as Error, response);
+    async createUser(request: Request, response: Response) {
+        try {
+            // validate request
+            const { body } = await zParse(createUserSchema, request);
+            // create user
+            const user = await this.database.createUser.apply(this.database, [
+                body.username,
+            ]);
+            return response.status(200).json({
+                _id: user._id,
+                username: user.username,
+            });
+        } catch (error) {
+            // Catching bad request errors
+            if (error instanceof ZodError) {
+                return response.status(400).send(error.message);
+            }
+            // Catching other application errors
+            return response.status(500).json({
+                error: error instanceof Error ? error.message : "unknown error",
+            });
+        }
     }
 
-    try {
-      const data = await this.database.createUser.apply(this.database, [username]);
-      
-      return response.json({
-        username: data.username,
-        _id: data._id
-      })
-    } catch (error) {
-      return this.handleServerError(error as Error, response);
-    }
-  }
-
-  async getAllUsers(_: Request, response: Response) {
-    try {
-    const data = await this.database.getUsers.apply(this.database, []);    
-
-    return response.json(data.map( user => {
-      return {
-        username: user.username,
-        _id: user._id
-      }
-    }));
-    } catch (error) {
-      return this.handleServerError(error as Error, response);
-    }
-  }
-
-  async saveExercise(request: Request, response: Response) {
-    const { description, duration, date } = request.body;
-    const { _id } = request.params;
-
-    try {
-      this.validator.validateRequest(saveExerciseValidationSchema, request.body);
-    } catch (error) {
-      return this.handleRequestError(error as Error, response);
-    }
-    
-    const exercise: ExerciseData = {
-      description: description,
-      duration: duration,
-      date: typeof date === "undefined"
-      ? DateValidator.getCurrentDateString()
-      : DateValidator.getFormatedDateString(date)
-    };
-
-    try {
-      const data = await this.database.saveExerciseInUser.apply(this.database, [_id, exercise]);
-
-      return response.json({
-        username: data.username,
-        description: data.exercises.at(-1)?.description,
-        duration: data.exercises.at(-1)?.duration,
-        date: data.exercises.at(-1)?.date,
-        _id: data._id
-      });
-    } catch (error) {
-      return this.handleServerError(error as Error, response);
-    }
-  }
-
-  async getUserLogs(request: Request, response: Response) {
-    const { _id } = request.params;
-    const { from, to, limit } = request.query;
-
-    try {
-      this.validator.validateRequest(getUsersLogValidationSchema, { ...request.params, ...request.query });
-    } catch (error) {
-      return this.handleRequestError(error as Error, response);
+    async getAllUsers(_: Request, response: Response) {
+        try {
+            const users = await this.database.getUsers.apply(this.database, []);
+            return response.status(200).json(
+                users.map((u) => {
+                    return {
+                        _id: u._id,
+                        username: u.username,
+                    };
+                }),
+            );
+        } catch (error) {
+            return response.status(500).json({
+                message:
+                    error instanceof Error ? error.message : "unknown error",
+            });
+        }
     }
 
-    try {
-      const data = await this.database.getUserLog.apply(
-        this.database,
-        [
-          _id, 
-          DateValidator.isValidDate(from) ? new Date(from as string) : undefined,
-          DateValidator.isValidDate(from) ? new Date(to as string) : undefined, 
-          !isNaN(Number(limit)) ? Number(limit) : undefined
-        ]
-      );
+    async createExercise(request: Request, response: Response) {
+        try {
+            // validate request
+            const { body, params } = await zParse(
+                createExerciseSchema,
+                request,
+            );
+            const user = await this.database.createExercise.apply(
+                this.database,
+                [
+                    params._id,
+                    {
+                        description: body.description,
+                        duration: Number(body.duration),
+                        date:
+                            typeof body.date === "undefined"
+                                ? new Date().toDateString()
+                                : body.date.toDateString(),
+                    },
+                ],
+            );
 
-      return response.json(data);
-    } catch (error) {
-      return this.handleServerError(error as Error, response);
+            return response.status(200).json({
+                username: user.username,
+                description: user.exercises.at(-1)?.description,
+                duration: user.exercises.at(-1)?.duration,
+                date: user.exercises.at(-1)?.date,
+                _id: user._id,
+            });
+        } catch (error) {
+            // Catching bad request errors
+            if (error instanceof ZodError) {
+                return response.status(400).send(error.message);
+            }
+            // Catching other application errors
+            return response.status(500).json({
+                error: error instanceof Error ? error.message : "unknown error",
+            });
+        }
     }
-  }
 
-  handleRequestError(error: Error, response: Response) {
-    console.log(error.message);
-    return response.status(400).send(error.message);
-  }
+    async getUserLogs(request: Request, response: Response) {
+        try {
+            // validate request
+            const { query, params } = await zParse(getUserLogsSchema, request);
+            const { from, to, limit } = query;
+            const user = await this.database.findUser.apply(this.database, [
+                params._id,
+            ]);
 
-  handleServerError(error: Error, response: Response) {
-    console.log(error.message);
-    return response.status(500).send(error.message);
-  }
+            if (!user) throw new Error("user with this id does not exist");
+
+            let exercises = user.exercises;
+
+            if (typeof from !== "undefined" || typeof to !== "undefined") {
+                exercises = exercises.filter((e) => {
+                    let state = true;
+                    if (typeof from !== "undefined") {
+                        state = new Date(e.date) >= from;
+                    }
+
+                    if (typeof to !== "undefined") {
+                        state = new Date(e.date) <= to;
+                    }
+                    return state;
+                });
+            }
+
+            if (typeof limit !== "undefined") {
+                exercises = exercises.slice(0, limit);
+            }
+
+            return response.status(200).json({
+                _id: user._id,
+                username: user.username,
+                count: user.exercises.length,
+                log: exercises,
+            });
+        } catch (error) {
+            // Catching bad request errors
+            if (error instanceof ZodError) {
+                return response.status(400).send(error.message);
+            }
+            // Catching other application errors
+            return response.status(500).json({
+                error: error instanceof Error ? error.message : "unknown error",
+            });
+        }
+    }
 }
 
-export default new Controller(Database, new Validator);
+export { Controller };
